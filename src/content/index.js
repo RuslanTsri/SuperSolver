@@ -1,6 +1,6 @@
 import { ParserManager } from './input/ParserManager';
 import { BrainBridge } from './processing/BrainBridge';
-import { Visualizer } from './output/Visualizer'; // Це твій новий Visualizer.js
+import { Visualizer } from './output/Visualizer';
 
 console.log("🚀 AI Solver: Content Script Loaded");
 
@@ -38,20 +38,15 @@ async function runSolver() {
         const bridge = new BrainBridge();
         const visualizer = new Visualizer();
 
-        // --- ЦИКЛ ---
         for (let i = 0; i < questionsQueue.length; i++) {
             const currentQuestion = questionsQueue[i];
-
-            // ❌ СКРОЛ ПРИБРАНО (Scroll removed per request)
 
             console.groupCollapsed(`🔹 Question ${i + 1}/${questionsQueue.length}`);
 
             try {
-                // AI
                 const aiDecision = await bridge.solve(currentQuestion);
                 console.log("🤖 Answer:", aiDecision);
 
-                // ==========================================
                 // ВІЗУАЛІЗАЦІЯ
                 // ==========================================
 
@@ -70,18 +65,15 @@ async function runSolver() {
 
                 // 3. STANDARD (Checkbox / Radio)
                 else {
-                    // Обробка множинних відповідей (масив)
                     let choices = [];
                     const rawAnswer = aiDecision.choice || aiDecision.answer;
 
                     if (Array.isArray(rawAnswer)) {
                         choices = rawAnswer;
                     } else if (typeof rawAnswer === 'string') {
-                        // Якщо рядок "a, c", розбиваємо його
                         choices = rawAnswer.toLowerCase().match(/[a-z]/g) || [];
                     }
 
-                    // Перебираємо всі букви (навіть якщо їх декілька для чекбоксів)
                     choices.forEach(choiceChar => {
                         const targetNode = findNodeByChoice(currentQuestion.optionsNodes, choiceChar);
                         if (targetNode) {
@@ -96,7 +88,6 @@ async function runSolver() {
                 console.groupEnd();
             }
 
-            // Пауза 1 сек (трохи менше, бо скролу немає, працює швидше)
             if (i < questionsQueue.length - 1) {
                 await new Promise(r => setTimeout(r, 1000));
             }

@@ -2,14 +2,14 @@ export const defaultSettings = {
     keys: {
         gemini: "",
         openai: "",
-        grok: "" // Це пул ключів для Groq
+        grok: ""
     },
     modes: {
         enabled: true,
         council: false // Режим дебатів
     },
     models: {
-        gemini: "gemini-1.5-flash",
+        gemini: "gemini-2.5-flash",
         llama: "llama-3.3-70b-versatile",
         mixtral: "mixtral-8x7b-32768"
     },
@@ -18,17 +18,15 @@ export const defaultSettings = {
         llama: 1.1,   // Середній
         mixtral: 1.0  // Молодший
     },
-    // 👇 ДОДАЄМО ЦЕЙ БЛОК 👇
     availableModels: {
-        gemini: [], // Тут буде кеш моделей Gemini
-        groq: []    // Тут буде кеш моделей Groq
+        gemini: [],
+        groq: []
     }
 };
 
 export const storage = {
     get: async () => {
         const data = await chrome.storage.local.get("settings");
-        // Об'єднуємо збережені дані з дефолтними (на випадок нових полів)
         return { ...defaultSettings, ...data.settings };
     },
     set: async (settings) => {

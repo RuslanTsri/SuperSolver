@@ -1,60 +1,41 @@
 export class GroqClient {
-    constructor(keysString, modelName) {
-        // Визначаємо красиве ім'я для інтерфейсу
-        if (modelName && modelName.includes("mixtral")) {
-            this.name = "Mixtral (Groq)";
-        } else {
-            this.name = "Llama 3 (Groq)";
-        }
-
-        this.modelName = modelName || "llama-3.3-70b-versatile";
-
-        // 1. ПАРСИНГ КЛЮЧІВ (Басейн)
-        if (!keysString) {
-            this.keys = [];
-        } else {
-            this.keys = keysString
-                .split(/[\n,]+/)       // Розбиваємо по комі або Enter
-                .map(k => k.trim())    // Чистимо пробіли
-                .filter(k => k.length > 10); // Прибираємо сміття
-        }
+    constructor(keysString, modelId) {
+        this.name = "Llama 3 (Groq)";
+        this.keys = keysString ? keysString.split(/[\n,]+/).map(k => k.trim()).filter(k => k.length > 10) : [];
+        this.modelId = modelId || "llama-3.3-70b-versatile"; // Дефолт
     }
 
-    // Метод ротації
     getRandomKey() {
         if (this.keys.length === 0) return null;
         return this.keys[Math.floor(Math.random() * this.keys.length)];
     }
 
     async ask(prompt, imageBase64) {
-        // 2. Беремо випадковий ключ
         const currentKey = this.getRandomKey();
+        if (!currentKey) return { success: false, error: "No Groq Keys" };
 
-        if (!currentKey) {
-            return { success: false, error: "⛔ Немає ключів Groq!" };
-        }
-
-        console.log(`⚡ ${this.name} requesting... (Key ending in ...${currentKey.slice(-4)})`);
-
-        // Логіка обробки картинок (Groq підтримує візію тільки на специфічних моделях)
-        let requestModel = this.modelName;
-        let messages = [];
+        let model = this.modelId;
+        let messages = [{ role: "user", content: prompt }];
 
         if (imageBase64) {
-            // Якщо прийшла картинка, тимчасово перемикаємось на Vision-модель,
-            // бо звичайна Llama/Mixtral впаде з помилкою.
-            requestModel = "llama-3.2-90b-vision-preview";
+            model = "llama-3.2-90b-vision-preview";
+
+            let cleanData = "";
+            if (typeof imageBase64 === 'object' && imageBase64.data) {
+                cleanData = imageBase64.data;
+            } else if (typeof imageBase64 === 'string') {
+                cleanData = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+            }
+
             messages = [
                 {
                     role: "user",
                     content: [
                         { type: "text", text: prompt },
-                        { type: "image_url", image_url: { url: `data:image/jpeg;base64,${imageBase64}` } }
+                        { type: "image_url", image_url: { url: `data:image/jpeg;base64,${cleanData}` } }
                     ]
                 }
             ];
-        } else {
-            messages = [{ role: "user", content: prompt }];
         }
 
         try {
@@ -66,34 +47,24 @@ export class GroqClient {
                 },
                 body: JSON.stringify({
                     messages: messages,
-                    model: requestModel,
-                    temperature: 0.6
+                    model: model,
+                    temperature: 0.1
                 })
             });
 
-            if (!response.ok) {
-                const errData = await response.json();
-
-                // Якщо 429 (Too Many Requests)
-                if (response.status === 429) {
-                    console.warn(`🔄 Groq Key exhausted: ...${currentKey.slice(-4)}`);
-                    return { success: false, error: "Rate Limit (429). Спробуй ще раз." };
-                }
-
-                throw new Error(errData.error?.message || response.statusText);
-            }
-
             const data = await response.json();
-            const text = data.choices[0].message.content;
+
+            if (data.error) {
+                return { success: false, error: data.error.message };
+            }
 
             return {
                 success: true,
-                text: text,
+                text: data.choices[0].message.content,
                 source: this.name
             };
 
         } catch (error) {
-            console.error("Groq Error:", error);
             return { success: false, error: error.message };
         }
     }

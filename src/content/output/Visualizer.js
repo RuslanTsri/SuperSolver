@@ -1,176 +1,145 @@
 export class Visualizer {
 
     constructor() {
-        console.log("🎨 Visualizer: Loaded (Custom Style)");
+        console.log("🎨 Visualizer: Loaded (Smart Style)");
     }
-
+    // 1. STANDARD TEST (Radio / Checkbox / Images)
     // ==========================================
-    // 1. STANDARD TEST (Жирний шрифт / Span / Картинки)
-    // ==========================================
-    highlightAnswer(targetNode, aiChoiceChar) {
+    highlightAnswer(targetNode, choices) {
         if (!targetNode) return;
-
-        // targetNode - це зазвичай <label> або <div>
-        const targets = [
-            targetNode.querySelector('.answernumber'),       // a., b. (Moodle)
-            targetNode.querySelector('.mat-radio-label-content'), // Netacad
-            targetNode.querySelector('.md-checkbox__label'),
-            targetNode.querySelector('p'),
-            targetNode.querySelector('span'),
-            targetNode                                       // Fallback
-        ];
-
-        // Шукаємо елемент з текстом
-        let target = targets.find(t => t && t.innerText.trim().length > 0);
-
-        // СПЕЦІАЛЬНА ОБРОБКА КАРТИНОК
-        // Якщо тексту майже немає, але є картинка всередині targetNode
-        const imgInside = targetNode.querySelector('img');
-        if ((!target || target.innerText.trim().length < 2) && imgInside) {
-            console.log("🖼️ Detected image answer");
-            // Робимо жирною рамку навколо картинки або всього блоку
-            targetNode.style.border = "3px solid #4CAF50"; // Зелена рамка
-            targetNode.style.borderRadius = "5px";
-            targetNode.style.padding = "5px";
-            targetNode.style.display = "inline-block";
+        let textContainer = targetNode.querySelector('.flex-fill') ||
+            targetNode.querySelector('label') ||
+            targetNode.querySelector('.text') ||
+            targetNode.querySelector('p') ||
+            targetNode;
+        if (targetNode.querySelector('img') && targetNode.innerText.trim().length < 5) {
+            targetNode.style.border = "2px solid #ffffff";
+            targetNode.style.borderRadius = "10px";
             return;
         }
 
-        // СТАНДАРТНА ОБРОБКА ТЕКСТУ
-        if (target) {
-            const text = target.innerText;
-            try {
-                // Якщо це нумерація Moodle (a., b.)
-                if (target.classList.contains('answernumber')) {
-                    target.style.fontWeight = "bold";
-                } else {
-                    // Якщо це текст відповіді -> Робимо жирним першу букву
-                    const match = text.match(/[a-zA-Zа-яА-Я0-9]/);
-                    if (match && !target.innerHTML.includes('font-weight: 600')) {
-                        const char = match[0];
-                        target.innerHTML = target.innerHTML.replace(char, `<span style="font-weight: 600;">${char}</span>`);
-                    }
-                }
-                // На всяк випадок робимо батьківський елемент трохи помітнішим
-                // targetNode.style.backgroundColor = "#f0fff4";
-            } catch (e) {
-                targetNode.style.fontWeight = "bold";
+        const computedStyle = window.getComputedStyle(textContainer);
+        const isAlreadyBold = computedStyle.fontWeight === 'bold' ||
+            parseInt(computedStyle.fontWeight) > 500;
+
+        this.styleFirstLetter(textContainer, isAlreadyBold);
+    }
+
+    styleFirstLetter(element, isAlreadyBold) {
+        const firstTextNode = this.findFirstTextNode(element);
+
+        if (!firstTextNode) {
+            element.style.border = "3px solid #2e7d32";
+            return;
+        }
+
+        const text = firstTextNode.textContent;
+        const match = text.match(/[a-zA-Zа-яА-Я0-9їієґ]/);
+
+        if (match) {
+            const char = match[0];
+            const index = match.index;
+            const span = document.createElement('span');
+            span.textContent = char;
+            span.style.display = "inline-block";
+
+            if (isAlreadyBold) {
+                // СИТУАЦІЯ 1: Сайт сам робить весь текст жирним.
+
+                span.style.fontWeight = "400";
+                span.style.border = "2px solid #ffffff";
+                span.style.borderRadius = "50%";
+                span.style.padding = "0px 6px";
+                span.style.backgroundColor = "#ffffff";
+                span.style.color = "#000000";
+                span.style.boxShadow = "0 2px 4px rgba(0,0,0,0.3)";
+                span.style.marginLeft = "5px";
+            } else {
+                // СИТУАЦІЯ 2: Текст на сайті звичайний (тонкий).
+
+                span.style.fontWeight = "600";
+                span.style.color = "#000000";
+            }
+
+            const textAfter = text.substring(index + 1);
+
+            firstTextNode.textContent = text.substring(0, index);
+
+            const parent = firstTextNode.parentNode;
+            const nextSibling = firstTextNode.nextSibling;
+            parent.insertBefore(span, nextSibling);
+            if (textAfter) {
+                const afterNode = document.createTextNode(textAfter);
+                parent.insertBefore(afterNode, span.nextSibling);
             }
         }
     }
 
-    // ==========================================
-    // 2. SHORT ANSWER (Placeholder)
+    findFirstTextNode(node) {
+        if (node.nodeType === Node.TEXT_NODE && node.textContent.trim().length > 0) {
+            return node;
+        }
+        for (const child of node.childNodes) {
+            const found = this.findFirstTextNode(child);
+            if (found) return found;
+        }
+        return null;
+    }
+    // 2. SHORT ANSWER
     // ==========================================
     visualizeShortAnswer(inputNode, answerText) {
         if (!inputNode) return;
-        inputNode.setAttribute('placeholder', answerText);
-        inputNode.setAttribute('title', answerText);
-        inputNode.style.borderColor = "#81c784";
-        inputNode.style.boxShadow = "0 0 5px rgba(76,175,80,0.2)";
+        let cleanAnswer = answerText;
+        try {
+            if (answerText.includes("{")) {
+                const json = JSON.parse(answerText.match(/\{[\s\S]*\}/)[0]);
+                cleanAnswer = json.answer || json.reason || answerText;
+            }
+        } catch(e) {}
+
+        cleanAnswer = cleanAnswer.replace(/^.*: /gm, '').trim();
+
+        inputNode.value = cleanAnswer;
+        inputNode.style.borderColor = "#2e7d32";
+        inputNode.style.borderWidth = "2px";
+        inputNode.style.backgroundColor = "#e8f5e9";
     }
 
+    // 3. MATCHING
     // ==========================================
-    // 3. MATCHING (Твоя логіка + Фікс)
-    // ==========================================
-    visualizeMatching(matchingPairs, aiFullReasoning) {
-        // matchingPairs = масив об'єктів {textElement, selectElement, text (ліва частина)}
-        if (!matchingPairs || matchingPairs.length === 0) return;
+    visualizeMatching(optionsNodes, aiResponseText) {
+        // optionsNodes = [{textElement, selectElement, text}]
+        console.log("🎨 Matching Visualization Started");
 
-        console.log("🎨 Visualizer: Syncing Matching Styles...");
+        const aiLines = aiResponseText.split('\n');
 
-        matchingPairs.forEach((item, index) => {
+        optionsNodes.forEach((item, idx) => {
             const { textElement, selectElement } = item;
             const options = Array.from(selectElement.options);
+            const relevantLine = aiLines.find(line => line.trim().startsWith(`${idx + 1}.`) || line.trim().startsWith(`${idx + 1})`));
 
-            let targetOptionIndex = -1;
+            if (!relevantLine) return;
+            let bestMatchIndex = -1;
+            let maxOverlap = 0;
 
-            // ЛОГІКА ПОШУКУ:
-            // 1. Розбиваємо відповідь AI на рядки.
-            // 2. Шукаємо рядок, що стосується цього питання (за індексом 1, 2, 3...)
-            // 3. Витягуємо текст відповіді і шукаємо його в <select>
-
-            // Регулярка шукає: "1. Текст питання ... Відповідь" або "1) ... - Відповідь"
-            // Ми шукаємо просто входження тексту опції у відповідь AI
-
-            // Перебираємо всі опції селекта
-            for (let i = 0; i < options.length; i++) {
+            for (let i = 1; i < options.length; i++) {
                 const optText = options[i].text.trim();
-                // Пропускаємо "Вибрати..."
-                if (optText.length < 2 || options[i].value === '0') continue;
-
-                // Перевірка: чи містить відповідь AI цей текст опції?
-                // Додатково: бажано, щоб цей текст був поруч з номером питання, але для простоти шукаємо входження.
-                if (aiFullReasoning.includes(optText)) {
-                    // Евристика: якщо AI написав текст цієї опції, значить він її вибрав.
-                    // (Це може дати збій, якщо однакові відповіді, але це краще, ніж random)
-                    targetOptionIndex = i;
-
-                    // Якщо ми знайшли рядок типу "1. Питання - Відповідь", це надійніше
-                    const lineMatch = aiFullReasoning.match(new RegExp(`${index + 1}[\\.\\)]\\s*.*?${escapeRegExp(optText)}`, 'i'));
-                    if (lineMatch) {
-                        targetOptionIndex = i;
-                        break; // Знайшли точний збіг для цього рядка
+                if (relevantLine.includes(optText)) {
+                    if (optText.length > maxOverlap) {
+                        maxOverlap = optText.length;
+                        bestMatchIndex = i;
                     }
                 }
             }
 
-            // Застосовуємо стиль, ТІЛЬКИ якщо знайшли відповідь
-            if (targetOptionIndex !== -1) {
-                // Вибираємо опцію у списку (щоб не було "одна й та сама")
-                selectElement.selectedIndex = targetOptionIndex;
-                this.applySyncedStyles(textElement, selectElement, targetOptionIndex);
-            } else {
-                console.warn(`⚠️ Matching: Не знайшов пару для "${item.text}"`);
+            if (bestMatchIndex !== -1) {
+                selectElement.selectedIndex = bestMatchIndex;
+                selectElement.style.border = "2px solid #2e7d32";
+                selectElement.style.backgroundColor = "#e8f5e9";
+
+                textElement.style.borderLeft = "5px solid #2e7d32";
+                textElement.style.paddingLeft = "5px";
             }
         });
     }
-
-    // ТВОЯ ФУНКЦІЯ (Без змін логіки, тільки адаптація)
-    applySyncedStyles(textElement, selectElement, targetOptionIndex) {
-        let targetTextContainer = textElement.querySelector('.text') || textElement.querySelector('p') || textElement;
-        const originalText = targetTextContainer.innerText;
-        if (!originalText) return;
-
-        // Знаходимо реальний DOM елемент опції
-        const targetOption = selectElement.options[targetOptionIndex];
-
-        const firstChar = originalText.charAt(0);
-        const restOfText = originalText.slice(1);
-        let styledChar = firstChar;
-
-        // Скидаємо стилі попередні
-        if (targetOption) {
-            targetOption.style.fontWeight="normal";
-            targetOption.style.fontStyle="normal";
-            targetOption.style.color="inherit";
-            targetOption.style.backgroundColor="transparent";
-        }
-
-        // Рахуємо "візуальний" індекс (пропускаючи "Вибрати...", яке має value="0")
-        // Щоб кольори йшли по порядку 1, 2, 3...
-        let visualIndex = 0;
-        for(let i=0; i<targetOptionIndex; i++) {
-            if(selectElement.options[i].value !== '0') visualIndex++;
-        }
-
-        // Цикл кольорів (0..5)
-        const styleIndex = visualIndex % 6;
-
-        switch (styleIndex) {
-            case 0: styledChar = `<b>${firstChar}</b>`; if(targetOption) targetOption.style.fontWeight = "900"; break;
-            case 1: styledChar = `<i>${firstChar}</i>`; if(targetOption) targetOption.style.fontStyle = "italic"; break;
-            case 2: styledChar = `<u>${firstChar}</u>`; if(targetOption) { targetOption.style.backgroundColor = "#d1d1d1"; targetOption.style.fontWeight = "bold"; } break;
-            case 3: styledChar = `<span style="color: red; font-weight: bold;">${firstChar}</span>`; if(targetOption) targetOption.style.color = "red"; break;
-            case 4: styledChar = `<span style="color: blue; font-weight: bold;">${firstChar}</span>`; if(targetOption) targetOption.style.color = "blue"; break;
-            case 5: styledChar = `<span style="color: #e67e22; font-weight: bold;">${firstChar}</span>`; if(targetOption) targetOption.style.color = "#e67e22"; break;
-            default: styledChar = `<span style="color: green; font-weight: bold;">${firstChar}</span>`; if(targetOption) targetOption.style.color = "green"; break;
-        }
-        targetTextContainer.innerHTML = styledChar + restOfText;
-    }
-}
-
-// Хелпер для екранування тексту в Regex
-function escapeRegExp(string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

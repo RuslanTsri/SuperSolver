@@ -1,10 +1,8 @@
-// src/lib/parsers/MoodleParser.js
 
 export class MoodleParser {
     constructor() {
         this.name = "Moodle Parser";
     }
-
     canHandle(url) {
         return url.includes('moodle') || document.querySelector('.que') !== null;
     }
@@ -13,7 +11,6 @@ export class MoodleParser {
         console.log("🕵️ MoodleParser: Починаю повне сканування...");
         const questions = Array.from(document.querySelectorAll('.que'));
         const parsedQuestions = [];
-
         for (const q of questions) {
             if (q.dataset.solverProcessed) continue;
             const data = await this.extractQuestionData(q);
@@ -21,14 +18,12 @@ export class MoodleParser {
         }
         return parsedQuestions.length === 0 ? null : parsedQuestions;
     }
-
     async extractQuestionData(element) {
         if (element.classList.contains('match')) return await this.parseMatching(element);
         if (element.classList.contains('shortanswer')) return await this.parseShortAnswer(element);
         return await this.parseStandard(element);
     }
-
-    // --- STANDARD (Radio/Checkbox) ---
+    // STANDARD
     async parseStandard(element) {
         const qTextEl = element.querySelector('.qtext');
         if (!qTextEl) return null;
@@ -45,7 +40,6 @@ export class MoodleParser {
             let text = node.innerText.replace(/^[a-z0-9а-я]\.\s*/i, "").trim();
             const imgs = await this.getImagesFromContainer(node);
 
-            // Якщо є картинка у варіанті, додаємо мітку
             if (imgs.length > 0) {
                 questionImages.push(...imgs); // Додаємо до загального контексту
                 text += ` [Варіант містить картинку #${questionImages.length}]`;
@@ -63,7 +57,7 @@ export class MoodleParser {
         };
     }
 
-    // --- MATCHING ---
+    // MATCHING
     async parseMatching(element) {
         const qTextEl = element.querySelector('.qtext');
         const questionText = qTextEl ? qTextEl.innerText.trim() : "Співставлення";
@@ -85,7 +79,6 @@ export class MoodleParser {
             }
         }
 
-        // Отримуємо варіанти з першого селекта
         const firstSelect = optionsNodes[0]?.selectElement;
         const rightSideOptions = firstSelect
             ? Array.from(firstSelect.options).filter(o => o.value !== '0').map(o => o.text)
@@ -98,12 +91,12 @@ export class MoodleParser {
             container: element,
             question: promptText,
             options: rightSideOptions,
-            optionsNodes: optionsNodes, // Це масив пар
+            optionsNodes: optionsNodes,
             allImages: images
         };
     }
 
-    // --- SHORT ANSWER ---
+    // SHORT ANSWER
     async parseShortAnswer(element) {
         const qTextEl = element.querySelector('.qtext');
         const input = element.querySelector('input[type="text"]');
@@ -121,14 +114,12 @@ export class MoodleParser {
         };
     }
 
-    // --- IMAGE UTILS ---
+    // IMAGE UTILS
     async getImagesFromContainer(container) {
         if (!container) return [];
         const imgs = Array.from(container.querySelectorAll('img'));
         const processed = [];
-
         for (const img of imgs) {
-            // Пропускаємо іконки та смайлики
             if (img.classList.contains('icon') || img.width < 40 || img.height < 40) continue;
 
             const base64 = await this.convertImageToBase64(img);
@@ -153,17 +144,12 @@ export class MoodleParser {
 
             ctx.drawImage(img, 0, 0);
 
-            // Отримуємо повний рядок
             const dataURL = canvas.toDataURL("image/jpeg", 0.8);
-
-            // ✂️ ВАЖЛИВО: Вирізаємо "data:image/jpeg;base64,"
             const base64Data = dataURL.split(",")[1];
-
             if (!base64Data) return null;
-
             return {
                 mimeType: "image/jpeg",
-                data: base64Data // Чистий код без заголовка
+                data: base64Data
             };
         } catch (e) {
             console.warn("Canvas blocked (CORS), skipping image.");

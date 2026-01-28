@@ -9,7 +9,6 @@ export class OpenAIClient {
 
     async ask(prompt, imageBase64) {
         try {
-            // Для GPT-4o Vision картинки передаються інакше (url або base64)
             const content = [{ type: "text", text: prompt }];
             if (imageBase64) {
                 content.push({
